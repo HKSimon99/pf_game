@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseClient } from "@/lib/supabase";
 import { ASSETS } from "@game/shared/constants";
 import { SubmitTurnSchema } from "@game/shared/schemas";
@@ -13,36 +13,10 @@ type Point = { date: string; nav: number };
 export default function PlayPage() {
   const [gameId, setGameId] = useState<string | null>(null);
   const [asOfDate, setAsOfDate] = useState<string | null>(null);
-  const [nav, setNav] = useState<number | null>(null);
   const [series, setSeries] = useState<Point[]>([]);
   const [weights, setWeights] = useState<Record<string, number>>({});
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.code === "KeyN") advance(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [gameId, asOfDate, weights, nav]);
-
-  async function start() {
-    const supabase = createSupabaseClient();
-    const token = (await supabase.auth.getSession()).data.session?.access_token;
-    if (!token) await supabase.auth.signInWithOAuth({ provider: "github" }); // quick path
-    const r = await fetch(
-      "/functions/v1/start-game",
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
-        body: JSON.stringify({}),
-      },
-    );
-    const j = await r.json();
-    setGameId(j.gameId);
-    setAsOfDate(j.startDate);
-    setNav(10000);
-    setSeries([{ date: j.startDate, nav: 10000 }]);
-  }
-
-  async function advance() {
+  const advance = useCallback(async () => {
     if (!gameId || !asOfDate) return;
     // simple +1 day
     const next = new Date(asOfDate + "T00:00:00Z");
@@ -67,8 +41,31 @@ export default function PlayPage() {
     });
     const j = await r.json();
     setAsOfDate(nextDate);
-    setNav(j.nav);
     setSeries(s => [...s, { date: nextDate, nav: j.nav }]);
+  }, [gameId, asOfDate, weights]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.code === "KeyN") advance(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [advance]);
+
+  async function start() {
+    const supabase = createSupabaseClient();
+    const token = (await supabase.auth.getSession()).data.session?.access_token;
+    if (!token) await supabase.auth.signInWithOAuth({ provider: "github" }); // quick path
+    const r = await fetch(
+      "/functions/v1/start-game",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
+        body: JSON.stringify({}),
+      },
+    );
+    const j = await r.json();
+    setGameId(j.gameId);
+    setAsOfDate(j.startDate);
+    setSeries([{ date: j.startDate, nav: 10000 }]);
   }
 
   const assetKeys = useMemo(() => ASSETS.map(a => `${a.assetType}:${a.assetId}`), []);
