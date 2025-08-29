@@ -1,5 +1,5 @@
 "use client";
-import { supabase } from "@/src/lib/supabase";
+import { createSupabaseClient } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -7,6 +7,7 @@ export default function Profile() {
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
+    const supabase = createSupabaseClient();
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
   }, []);
 
@@ -15,7 +16,7 @@ export default function Profile() {
       {email ? (
         <div>Signed in as {email}</div>
       ) : (
-        <Button onClick={() => supabase.auth.signInWithOAuth({ provider: "github" })}>
+        <Button onClick={() => createSupabaseClient().auth.signInWithOAuth({ provider: "github" })}>
           Sign in with GitHub
         </Button>
       )}

@@ -1,9 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/src/lib/supabase";
+import { createSupabaseClient } from "@/lib/supabase";
+
+type LeaderboardRow = {
+  final_nav: number;
+  turns_played: number;
+  season_id: number;
+};
 
 export default function Leaderboard() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<LeaderboardRow[]>([]);
 
   async function fetchRows() {
     const r = await fetch("/functions/v1/leaderboard?limit=50");
@@ -12,11 +18,15 @@ export default function Leaderboard() {
   }
 
   useEffect(() => {
+    const supabase = createSupabaseClient();
     fetchRows();
-    const ch = supabase.channel("results")
+    const ch = supabase
+      .channel("results")
       .on("postgres_changes", { event: "*", schema: "public", table: "game_results" }, fetchRows)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, []);
 
   return (

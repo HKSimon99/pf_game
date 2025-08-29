@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/src/lib/supabase";
-import { ASSETS } from "@game/shared/src/constants";
-import { SubmitTurnSchema } from "@game/shared/src/schemas";
+import { createSupabaseClient } from "@/lib/supabase";
+import { ASSETS } from "@game/shared/constants";
+import { SubmitTurnSchema } from "@game/shared/schemas";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { AreaChart, Card, Title } from "@tremor/react";
@@ -24,9 +24,17 @@ export default function PlayPage() {
   }, [gameId, asOfDate, weights, nav]);
 
   async function start() {
+    const supabase = createSupabaseClient();
     const token = (await supabase.auth.getSession()).data.session?.access_token;
     if (!token) await supabase.auth.signInWithOAuth({ provider: "github" }); // quick path
-    const r = await fetch("/functions/v1/start-game", { method: "POST", headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }, body: JSON.stringify({})});
+    const r = await fetch(
+      "/functions/v1/start-game",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
+        body: JSON.stringify({}),
+      },
+    );
     const j = await r.json();
     setGameId(j.gameId);
     setAsOfDate(j.startDate);
@@ -49,10 +57,13 @@ export default function PlayPage() {
     const payload = { gameId, asOfDate: nextDate, orders };
     SubmitTurnSchema.parse(payload);
 
+    const supabase = createSupabaseClient();
     const r = await fetch("/functions/v1/submit-turn", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
-      body: JSON.stringify(payload)
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
+      body: JSON.stringify(payload),
     });
     const j = await r.json();
     setAsOfDate(nextDate);
